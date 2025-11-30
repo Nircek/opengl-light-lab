@@ -1,0 +1,116 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+
+[project]
+dependencies = [
+  "keyboard (>=0.13.5,<0.14.0)",
+  "mypy (>=1.18.2,<2.0.0)",
+  "numpy (>=2.3.3,<3.0.0)",
+  "pandas (>=2.3.3,<3.0.0)",
+  "pre-commit (>=4.3.0,<5.0.0)",
+  "pyopengl (>=3.1.10,<4.0.0)",
+  "pyqt6 (>=6.9.1,<7.0.0)",
+  "ruff (>=0.14.0,<0.15.0)",
+  "pyside6 (>=6.10.1,<7.0.0)"
+]
+description = "Light effects editor"
+name = "opengl_light_lab"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+version = "0.0.1"
+
+[[project.authors]]
+email = "mzepp@student.agh.edu.pl"
+name = "Marcin Zepp"
+
+[project.scripts]
+ui = "opengl_light_lab.__main__:main"
+
+[tool.mypy]
+plugins = []
+
+[[tool.poetry.packages]]
+include = "opengl_light_lab"
+
+[tool.pre-commit-update]
+warnings = true
+
+[tool.pre-commit-update.yaml]
+mapping = 2
+offset = 2
+sequence = 4
+
+[tool.ruff]
+extend-exclude = []
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.format]
+preview = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = [
+  "C901",
+  "COM812",
+  "D203",
+  "D212",
+  "DOC201",
+  "DOC402",
+  "DOC501",
+  "N802",
+  "PLR0912",
+  "PLR0915",
+  "PLR6301"
+]
+preview = true
+select = [
+  "A",
+  "ANN",
+  "ARG",
+  "B",
+  "C",
+  "COM",
+  "DOC",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FIX",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "INP",
+  "INT",
+  "ISC",
+  "LOG",
+  "N",
+  "NPY",
+  "PD",
+  "PERF",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "PYI",
+  "Q",
+  "RET",
+  "RUF",
+  "SIM",
+  "SLF",
+  "TC",
+  "TID",
+  "TRY",
+  "UP",
+  "W"
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
