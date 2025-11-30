@@ -53,4 +53,4 @@ class AppState:
     show_light_position: bool = True
     lighting_enabled: bool = True
     depth_test: bool = True
-    show_help: bool = False
+    show_help: bool = True

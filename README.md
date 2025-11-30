@@ -10,7 +10,7 @@ TBD
 
 ## Lista użytych materiałów
 
-- PyQt6
+- PySide6
 - PyOpenGL
 - ...
 

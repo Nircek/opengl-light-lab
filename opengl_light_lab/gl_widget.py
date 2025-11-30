@@ -76,22 +76,13 @@ from opengl_light_lab import AppState, Projection, Spherical
 HELP_TEXT = """
 Controls:
   Esc       - quit
-  Space     - toggle auto-rotate
-  1         - toggle lighting
-  2         - toggle showing light marker
-  3         - toggle depth test
-  4         - cycle light attenuation mode (constant/linear/quadratic)
-  5         - change attenuation value (Shift+5 decreases)
-  6         - toggle local viewer light model
-  7         - toggle two-sided lighting model
-  0         - toggle axis display
-  O         - orthogonal projection
-  P         - perspective projection
-  UHJKYI    - move light on axes (Z +/- / X +/- / Y +/-)
-  Q/E       - zoom out/in (or change ortho half-height)
-  W/S/A/D   - change camera angles (theta / phi)
-  [ / ]     - change FOV (perspective)
-  Z/X       - change cube distance
+  UHJKYI    - move light (Z +/- / X +/- / Y +/-)
+  QE        - zoom out/in (or change ortho half-height)
+  WSAD      - change camera angles (theta / phi)
+  []        - change FOV (perspective)
+  ZX        - change cube distance
+  ?         - toggle help overlay
+
 
 TODO:
 - animacja obrotu
@@ -102,6 +93,7 @@ TODO:
 - przynajmniej jedna tekstura
 - światło
 - GLSL
+- monospace font
 """
 FULL_REVOLUTION = 360.0
 
@@ -117,6 +109,7 @@ class GLWidget(QOpenGLWidget):
         self.timer.start(16)  # ~60Hz
         self._dt = 0.0
         self._pressed_keys: set[str] = set()
+        self.resize_event: bool = False
 
     def initializeGL(self) -> None:
         glClearColor(0.15, 0.15, 0.18, 1.0)
@@ -206,8 +199,8 @@ class GLWidget(QOpenGLWidget):
             painter = QtGui.QPainter(self)
             painter.setRenderHint(QtGui.QPainter.RenderHint.TextAntialiasing)
             margin = 8
-            w = min(600, self.width() - 20)
-            h = min(400, self.height() - 20)
+            w = min(300, self.width() - 20)
+            h = min(200, self.height() - 20)
             rect = QtCore.QRect(margin, margin, w, h)
             painter.fillRect(rect, QtGui.QColor(0, 0, 0, 180))
             painter.setPen(QtGui.QColor(240, 240, 240))
@@ -341,7 +334,6 @@ class GLWidget(QOpenGLWidget):
         glVertex3f(+0.5, +0.5, -0.5)
 
         # bottom (-Y)
-
         glNormal3f(0.0, -1.0, 0.0)
         glVertex3f(-0.5, -0.5, -0.5)
         glVertex3f(+0.5, -0.5, -0.5)
@@ -373,67 +365,15 @@ class GLWidget(QOpenGLWidget):
 
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> None:
         key = ev.key()
-        modifiers = ev.modifiers()
         txt = ev.text().lower()
 
         if txt:
             self._pressed_keys.add(txt)
         if txt == "?":
             self.app_state.show_help = not self.app_state.show_help
-            print("Help:", "ON" if self.app_state.show_help else "OFF")
 
         if key == QtCore.Qt.Key.Key_Escape:
             QtWidgets.QApplication.quit()
-        elif key == QtCore.Qt.Key.Key_Space:
-            self.app_state.auto_rotate = not self.app_state.auto_rotate
-            print("Auto-rotate:", "ON" if self.app_state.auto_rotate else "OFF")
-        elif key == QtCore.Qt.Key.Key_1:
-            self.app_state.lighting_enabled = not self.app_state.lighting_enabled
-            print("Lighting:", "ON" if self.app_state.lighting_enabled else "OFF")
-        elif key == QtCore.Qt.Key.Key_2:
-            self.app_state.show_light_position = not self.app_state.show_light_position
-            print("Light marker:", "ON" if self.app_state.show_light_position else "OFF")
-        elif key == QtCore.Qt.Key.Key_3:
-            self.app_state.depth_test = not self.app_state.depth_test
-            print("Depth test:", "ON" if self.app_state.depth_test else "OFF")
-        elif key == QtCore.Qt.Key.Key_4:
-            modes = [GL_CONSTANT_ATTENUATION, GL_LINEAR_ATTENUATION, GL_QUADRATIC_ATTENUATION]
-            idx = (
-                modes.index(self.app_state.light_attenuation_mode)
-                if self.app_state.light_attenuation_mode in modes
-                else 0
-            )
-            idx = (idx + 1) % len(modes)
-            self.app_state.light_attenuation_mode = modes[idx]
-            label = {
-                GL_CONSTANT_ATTENUATION: "constant",
-                GL_LINEAR_ATTENUATION: "linear",
-                GL_QUADRATIC_ATTENUATION: "quadratic",
-            }[self.app_state.light_attenuation_mode]
-            print("Attenuation:", label, "(", self.app_state.light_attenuation_value, ")")
-        elif key == QtCore.Qt.Key.Key_5:
-            if modifiers & QtCore.Qt.KeyboardModifier.ShiftModifier:
-                self.app_state.light_attenuation_value = max(0.0, self.app_state.light_attenuation_value - 0.01)
-            else:
-                self.app_state.light_attenuation_value += 0.01
-            print("Attenuation value:", self.app_state.light_attenuation_value)
-        elif key == QtCore.Qt.Key.Key_6:
-            self.app_state.light_model_local_viewer = not self.app_state.light_model_local_viewer
-            print("Local viewer:", "ON" if self.app_state.light_model_local_viewer else "OFF")
-        elif key == QtCore.Qt.Key.Key_7:
-            self.app_state.light_model_two_side = not self.app_state.light_model_two_side
-            print("Two-sided lighting:", "ON" if self.app_state.light_model_two_side else "OFF")
-        elif key == QtCore.Qt.Key.Key_0:
-            self.app_state.show_axis = not self.app_state.show_axis
-            print("Axis:", "ON" if self.app_state.show_axis else "OFF")
-        elif key == QtCore.Qt.Key.Key_O:
-            self.app_state.camera_projection = Projection.ORTHOGONAL
-            print("Projection: ortho")
-            self.resizeGL(self.width(), self.height())
-        elif key == QtCore.Qt.Key.Key_P:
-            self.app_state.camera_projection = Projection.PERSPECTIVE
-            print("Projection: perspective")
-            self.resizeGL(self.width(), self.height())
         else:
             super().keyPressEvent(ev)
 
