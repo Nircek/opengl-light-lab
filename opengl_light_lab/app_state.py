@@ -41,6 +41,9 @@ class AppState:
     camera_perspective_fov: float = 60.0
     camera_ortho_half_height: float = 1.0
 
+    # Texture for center cube (None means no texture)
+    current_texture: str | None = None
+
     # Light type and parameters
     light_type: LightType = LightType.POINT
     light_position: tuple[float, float, float] = (0.5, 0.5, 0.5)
@@ -55,8 +58,8 @@ class AppState:
 
     light_attenuation_mode: int = GL_CONSTANT_ATTENUATION
     light_attenuation_value: float = 1.0
-    light_model_local_viewer: bool = False
-    light_model_two_side: bool = False
+    light_model_local_viewer: bool = True
+    light_model_two_side: bool = True
 
     rotation_angle: float = 0.0
     auto_rotate: bool = True

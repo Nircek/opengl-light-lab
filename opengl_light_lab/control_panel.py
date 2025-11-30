@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from OpenGL.GL import GL_CONSTANT_ATTENUATION, GL_LINEAR_ATTENUATION, GL_QUADRATIC_ATTENUATION  # type: ignore
@@ -31,44 +32,37 @@ class ControlPanel(QtWidgets.QDockWidget):
         scroll_content = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(scroll_content)
 
-        # ===== Rendering Section =====
-        rendering_group = QtWidgets.QGroupBox("Rendering")
-        rendering_layout = QtWidgets.QVBoxLayout()
+        # ===== Scene Section =====
+        scene_group = QtWidgets.QGroupBox("Scene")
+        scene_layout = QtWidgets.QVBoxLayout()
 
-        self.lighting_cb = QtWidgets.QCheckBox("Enable Lighting")
-        self.lighting_cb.setChecked(self.app_state.lighting_enabled)
-        self.lighting_cb.stateChanged.connect(self._on_lighting_changed)
-        rendering_layout.addWidget(self.lighting_cb)
+        self.auto_rotate_cb = QtWidgets.QCheckBox("Auto-Rotate Objects")
+        self.auto_rotate_cb.setChecked(self.app_state.auto_rotate)
+        self.auto_rotate_cb.stateChanged.connect(self._on_auto_rotate_changed)
+        scene_layout.addWidget(self.auto_rotate_cb)
 
-        self.depth_test_cb = QtWidgets.QCheckBox("Enable Depth Test")
-        self.depth_test_cb.setChecked(self.app_state.depth_test)
-        self.depth_test_cb.stateChanged.connect(self._on_depth_test_changed)
-        rendering_layout.addWidget(self.depth_test_cb)
-
-        self.show_axis_cb = QtWidgets.QCheckBox("Show Axis")
+        self.show_axis_cb = QtWidgets.QCheckBox("Show Coordinate Axes")
         self.show_axis_cb.setChecked(self.app_state.show_axis)
         self.show_axis_cb.stateChanged.connect(self._on_show_axis_changed)
-        rendering_layout.addWidget(self.show_axis_cb)
+        scene_layout.addWidget(self.show_axis_cb)
 
         self.show_light_cb = QtWidgets.QCheckBox("Show Light Marker")
         self.show_light_cb.setChecked(self.app_state.show_light_position)
         self.show_light_cb.stateChanged.connect(self._on_show_light_changed)
-        rendering_layout.addWidget(self.show_light_cb)
+        scene_layout.addWidget(self.show_light_cb)
 
-        rendering_group.setLayout(rendering_layout)
-        layout.addWidget(rendering_group)
+        self.lighting_cb = QtWidgets.QCheckBox("Enable Lighting")
+        self.lighting_cb.setChecked(self.app_state.lighting_enabled)
+        self.lighting_cb.stateChanged.connect(self._on_lighting_changed)
+        scene_layout.addWidget(self.lighting_cb)
 
-        # ===== Animation Section =====
-        animation_group = QtWidgets.QGroupBox("Animation")
-        animation_layout = QtWidgets.QVBoxLayout()
+        self.depth_test_cb = QtWidgets.QCheckBox("Enable Depth Test")
+        self.depth_test_cb.setChecked(self.app_state.depth_test)
+        self.depth_test_cb.stateChanged.connect(self._on_depth_test_changed)
+        scene_layout.addWidget(self.depth_test_cb)
 
-        self.auto_rotate_cb = QtWidgets.QCheckBox("Auto-Rotate")
-        self.auto_rotate_cb.setChecked(self.app_state.auto_rotate)
-        self.auto_rotate_cb.stateChanged.connect(self._on_auto_rotate_changed)
-        animation_layout.addWidget(self.auto_rotate_cb)
-
-        animation_group.setLayout(animation_layout)
-        layout.addWidget(animation_group)
+        scene_group.setLayout(scene_layout)
+        layout.addWidget(scene_group)
 
         # ===== Camera Section =====
         camera_group = QtWidgets.QGroupBox("Camera")
@@ -130,94 +124,96 @@ class ControlPanel(QtWidgets.QDockWidget):
         camera_group.setLayout(camera_layout)
         layout.addWidget(camera_group)
 
-        # ===== Light Type Section =====
-        light_type_group = QtWidgets.QGroupBox("Light Type")
-        light_type_layout = QtWidgets.QHBoxLayout()
+        # ===== Light Source Section =====
+        light_source_group = QtWidgets.QGroupBox("Light Source")
+        light_source_layout = QtWidgets.QFormLayout()
 
+        # Light type combo
         self.light_type_combo = QtWidgets.QComboBox()
-        self.light_type_combo.addItem("Point", LightType.POINT)
-        self.light_type_combo.addItem("Directional", LightType.DIRECTIONAL)
-        # Set current
+        self.light_type_combo.addItem("Point Light", LightType.POINT)
+        self.light_type_combo.addItem("Directional Light", LightType.DIRECTIONAL)
         for i in range(self.light_type_combo.count()):
             if self.light_type_combo.itemData(i) == self.app_state.light_type:
                 self.light_type_combo.setCurrentIndex(i)
                 break
         self.light_type_combo.currentIndexChanged.connect(self._on_light_type_changed)
-        light_type_layout.addWidget(self.light_type_combo)
-        light_type_group.setLayout(light_type_layout)
-        layout.addWidget(light_type_group)
+        light_source_layout.addRow("Type:", self.light_type_combo)
 
-        # ===== Light Position Section =====
-        self.light_pos_group = QtWidgets.QGroupBox("Light Position (Point)")
-        light_pos_layout = QtWidgets.QFormLayout()
-
+        # Position controls (for point light)
+        self._pos_label = QtWidgets.QLabel("Position:")
         self.pos_x_spin = QtWidgets.QDoubleSpinBox()
         self.pos_x_spin.setRange(-10.0, 10.0)
         self.pos_x_spin.setSingleStep(0.1)
         self.pos_x_spin.setValue(self.app_state.light_position[0])
         self.pos_x_spin.valueChanged.connect(self._on_pos_x_changed)
-        light_pos_layout.addRow("X:", self.pos_x_spin)
 
         self.pos_y_spin = QtWidgets.QDoubleSpinBox()
         self.pos_y_spin.setRange(-10.0, 10.0)
         self.pos_y_spin.setSingleStep(0.1)
         self.pos_y_spin.setValue(self.app_state.light_position[1])
         self.pos_y_spin.valueChanged.connect(self._on_pos_y_changed)
-        light_pos_layout.addRow("Y:", self.pos_y_spin)
 
         self.pos_z_spin = QtWidgets.QDoubleSpinBox()
         self.pos_z_spin.setRange(-10.0, 10.0)
         self.pos_z_spin.setSingleStep(0.1)
         self.pos_z_spin.setValue(self.app_state.light_position[2])
         self.pos_z_spin.valueChanged.connect(self._on_pos_z_changed)
-        light_pos_layout.addRow("Z:", self.pos_z_spin)
 
-        self.light_pos_group.setLayout(light_pos_layout)
-        layout.addWidget(self.light_pos_group)
+        pos_widget = QtWidgets.QWidget()
+        pos_layout = QtWidgets.QHBoxLayout(pos_widget)
+        pos_layout.setContentsMargins(0, 0, 0, 0)
+        pos_layout.addWidget(QtWidgets.QLabel("X:"))
+        pos_layout.addWidget(self.pos_x_spin)
+        pos_layout.addWidget(QtWidgets.QLabel("Y:"))
+        pos_layout.addWidget(self.pos_y_spin)
+        pos_layout.addWidget(QtWidgets.QLabel("Z:"))
+        pos_layout.addWidget(self.pos_z_spin)
+        light_source_layout.addRow(self._pos_label, pos_widget)
 
-        # ===== Light Direction Section =====
-        self.light_dir_group = QtWidgets.QGroupBox("Light Direction (Directional)")
-        light_layout = QtWidgets.QFormLayout()
-
+        # Direction controls (for directional light)
+        self._dir_label = QtWidgets.QLabel("Direction:")
         self.dir_x_spin = QtWidgets.QDoubleSpinBox()
         self.dir_x_spin.setRange(-10.0, 10.0)
         self.dir_x_spin.setSingleStep(0.1)
         self.dir_x_spin.setValue(self.app_state.light_direction[0])
         self.dir_x_spin.valueChanged.connect(self._on_dir_x_changed)
-        light_layout.addRow("Dir X:", self.dir_x_spin)
 
         self.dir_y_spin = QtWidgets.QDoubleSpinBox()
         self.dir_y_spin.setRange(-10.0, 10.0)
         self.dir_y_spin.setSingleStep(0.1)
         self.dir_y_spin.setValue(self.app_state.light_direction[1])
         self.dir_y_spin.valueChanged.connect(self._on_dir_y_changed)
-        light_layout.addRow("Dir Y:", self.dir_y_spin)
 
         self.dir_z_spin = QtWidgets.QDoubleSpinBox()
         self.dir_z_spin.setRange(-10.0, 10.0)
         self.dir_z_spin.setSingleStep(0.1)
         self.dir_z_spin.setValue(self.app_state.light_direction[2])
         self.dir_z_spin.valueChanged.connect(self._on_dir_z_changed)
-        light_layout.addRow("Dir Z:", self.dir_z_spin)
 
-        self.light_dir_group.setLayout(light_layout)
-        layout.addWidget(self.light_dir_group)
+        dir_widget = QtWidgets.QWidget()
+        dir_layout = QtWidgets.QHBoxLayout(dir_widget)
+        dir_layout.setContentsMargins(0, 0, 0, 0)
+        dir_layout.addWidget(QtWidgets.QLabel("X:"))
+        dir_layout.addWidget(self.dir_x_spin)
+        dir_layout.addWidget(QtWidgets.QLabel("Y:"))
+        dir_layout.addWidget(self.dir_y_spin)
+        dir_layout.addWidget(QtWidgets.QLabel("Z:"))
+        dir_layout.addWidget(self.dir_z_spin)
+        light_source_layout.addRow(self._dir_label, dir_widget)
+        self._dir_widget = dir_widget
+        self._pos_widget = pos_widget
 
-        # ===== Light Attenuation Section =====
-        self.light_atten_group = QtWidgets.QGroupBox("Light Attenuation (Point only)")
-        light_atten_layout = QtWidgets.QFormLayout()
-
+        # Attenuation (point light only)
+        self._atten_label = QtWidgets.QLabel("Attenuation:")
         self.atten_mode_combo = QtWidgets.QComboBox()
         self.atten_mode_combo.addItem("Constant", GL_CONSTANT_ATTENUATION)
         self.atten_mode_combo.addItem("Linear", GL_LINEAR_ATTENUATION)
         self.atten_mode_combo.addItem("Quadratic", GL_QUADRATIC_ATTENUATION)
-        # Set current mode
         for i in range(self.atten_mode_combo.count()):
             if self.atten_mode_combo.itemData(i) == self.app_state.light_attenuation_mode:
                 self.atten_mode_combo.setCurrentIndex(i)
                 break
         self.atten_mode_combo.currentIndexChanged.connect(self._on_attenuation_mode_changed)
-        light_atten_layout.addRow("Mode:", self.atten_mode_combo)
 
         self.atten_value_spin = QtWidgets.QDoubleSpinBox()
         self.atten_value_spin.setRange(0.0, 10.0)
@@ -225,63 +221,79 @@ class ControlPanel(QtWidgets.QDockWidget):
         self.atten_value_spin.setDecimals(3)
         self.atten_value_spin.setValue(self.app_state.light_attenuation_value)
         self.atten_value_spin.valueChanged.connect(self._on_attenuation_value_changed)
-        light_atten_layout.addRow("Value:", self.atten_value_spin)
 
-        self.light_atten_group.setLayout(light_atten_layout)
-        layout.addWidget(self.light_atten_group)
+        atten_widget = QtWidgets.QWidget()
+        atten_layout = QtWidgets.QHBoxLayout(atten_widget)
+        atten_layout.setContentsMargins(0, 0, 0, 0)
+        atten_layout.addWidget(self.atten_mode_combo)
+        atten_layout.addWidget(QtWidgets.QLabel("Value:"))
+        atten_layout.addWidget(self.atten_value_spin)
+        light_source_layout.addRow(self._atten_label, atten_widget)
+        self._atten_widget = atten_widget
 
-        # ===== Light Colors Section =====
-        self.light_colors_group = QtWidgets.QGroupBox("Light Colors")
-        light_colors_layout = QtWidgets.QFormLayout()
+        light_source_group.setLayout(light_source_layout)
+        layout.addWidget(light_source_group)
 
-        self.diffuse_btn = QtWidgets.QPushButton("Pick Diffuse")
+        # ===== Light Properties Section =====
+        light_props_group = QtWidgets.QGroupBox("Light Properties")
+        light_props_layout = QtWidgets.QFormLayout()
+
+        self.diffuse_btn = QtWidgets.QPushButton("Pick")
         self.diffuse_btn.clicked.connect(self._pick_diffuse)
         self._update_color_button(self.diffuse_btn, self.app_state.light_diffuse)
-        light_colors_layout.addRow("Diffuse:", self.diffuse_btn)
+        light_props_layout.addRow("Diffuse Color:", self.diffuse_btn)
 
-        self.ambient_btn = QtWidgets.QPushButton("Pick Ambient")
+        self.ambient_btn = QtWidgets.QPushButton("Pick")
         self.ambient_btn.clicked.connect(self._pick_ambient)
         self._update_color_button(self.ambient_btn, self.app_state.light_ambient)
-        light_colors_layout.addRow("Ambient:", self.ambient_btn)
+        light_props_layout.addRow("Ambient Color:", self.ambient_btn)
 
-        self.specular_btn = QtWidgets.QPushButton("Pick Specular")
+        self.specular_btn = QtWidgets.QPushButton("Pick")
         self.specular_btn.clicked.connect(self._pick_specular)
         self._update_color_button(self.specular_btn, self.app_state.light_specular)
-        light_colors_layout.addRow("Specular:", self.specular_btn)
-
-        self.light_colors_group.setLayout(light_colors_layout)
-        layout.addWidget(self.light_colors_group)
-
-        # ===== Light Model Section =====
-        light_model_group = QtWidgets.QGroupBox("Light Model")
-        light_model_layout = QtWidgets.QVBoxLayout()
+        light_props_layout.addRow("Specular Color:", self.specular_btn)
 
         self.local_viewer_cb = QtWidgets.QCheckBox("Local Viewer")
         self.local_viewer_cb.setChecked(self.app_state.light_model_local_viewer)
         self.local_viewer_cb.stateChanged.connect(self._on_local_viewer_changed)
-        light_model_layout.addWidget(self.local_viewer_cb)
+        light_props_layout.addRow("", self.local_viewer_cb)
 
         self.two_side_cb = QtWidgets.QCheckBox("Two-Sided Lighting")
         self.two_side_cb.setChecked(self.app_state.light_model_two_side)
         self.two_side_cb.stateChanged.connect(self._on_two_side_changed)
-        light_model_layout.addWidget(self.two_side_cb)
+        light_props_layout.addRow("", self.two_side_cb)
 
-        light_model_group.setLayout(light_model_layout)
-        layout.addWidget(light_model_group)
+        light_props_group.setLayout(light_props_layout)
+        layout.addWidget(light_props_group)
 
-        # ===== Object Section =====
-        object_group = QtWidgets.QGroupBox("Object")
-        object_layout = QtWidgets.QFormLayout()
+        # ===== Objects Section =====
+        objects_group = QtWidgets.QGroupBox("Objects")
+        objects_layout = QtWidgets.QFormLayout()
 
         self.cube_distance_spin = QtWidgets.QDoubleSpinBox()
         self.cube_distance_spin.setRange(0.0, 10.0)
         self.cube_distance_spin.setSingleStep(0.1)
         self.cube_distance_spin.setValue(self.app_state.cube_distance)
         self.cube_distance_spin.valueChanged.connect(self._on_cube_distance_changed)
-        object_layout.addRow("Cube Distance:", self.cube_distance_spin)
+        objects_layout.addRow("Side Objects Distance:", self.cube_distance_spin)
 
-        object_group.setLayout(object_layout)
-        layout.addWidget(object_group)
+        self.texture_combo = QtWidgets.QComboBox()
+        self._texture_files: dict[str, str] = {}  # display name -> full path
+        self._populate_texture_combo()
+        self.texture_combo.currentIndexChanged.connect(self._on_texture_changed)
+        objects_layout.addRow("Center Cube Texture:", self.texture_combo)
+
+        objects_group.setLayout(objects_layout)
+        layout.addWidget(objects_group)
+
+        # Initial visibility based on light type
+        is_point = self.app_state.light_type == LightType.POINT
+        self._pos_label.setVisible(is_point)
+        self._pos_widget.setVisible(is_point)
+        self._dir_label.setVisible(not is_point)
+        self._dir_widget.setVisible(not is_point)
+        self._atten_label.setVisible(is_point)
+        self._atten_widget.setVisible(is_point)
 
         # Add stretch to push everything to the top
         layout.addStretch()
@@ -383,14 +395,56 @@ class ControlPanel(QtWidgets.QDockWidget):
     def _on_cube_distance_changed(self, value: float) -> None:
         self.app_state.cube_distance = value
 
+    def _populate_texture_combo(self) -> None:
+        """Scan textures folder and populate the combo box."""
+        self.texture_combo.clear()
+        self._texture_files.clear()
+
+        # Add "None" option
+        self.texture_combo.addItem("(None)")
+        self._texture_files["(None)"] = ""
+
+        # Find textures folder relative to this module
+        textures_dir = Path(__file__).parent.parent / "textures"
+        if not textures_dir.exists():
+            return
+
+        # Scan for jpg/jpeg files
+        jpg_files = list(textures_dir.glob("*.jpg")) + list(textures_dir.glob("*.jpeg"))
+        jpg_files.sort()
+
+        current_index = 0
+        for i, jpg_path in enumerate(jpg_files, start=1):
+            # Extract display name (part before underscore)
+            filename = jpg_path.stem  # filename without extension
+            display_name = filename.split("_")[0] if "_" in filename else filename
+
+            self.texture_combo.addItem(display_name)
+            self._texture_files[display_name] = str(jpg_path)
+
+            # Check if this is the currently selected texture
+            if self.app_state.current_texture == str(jpg_path):
+                current_index = i
+
+        self.texture_combo.setCurrentIndex(current_index)
+
+    def _on_texture_changed(self, _index: int) -> None:
+        """Handle texture selection change."""
+        display_name = self.texture_combo.currentText()
+        texture_path = self._texture_files.get(display_name, "")
+        self.app_state.current_texture = texture_path or None
+
     # New light controls handlers
     def _on_light_type_changed(self, index: int) -> None:
         self.app_state.light_type = self.light_type_combo.itemData(index)
         # Update visibility/enabled status immediately
         is_point = self.app_state.light_type == LightType.POINT
-        self.light_pos_group.setVisible(is_point)
-        self.light_dir_group.setVisible(not is_point)
-        self.light_atten_group.setEnabled(is_point)
+        self._pos_label.setVisible(is_point)
+        self._pos_widget.setVisible(is_point)
+        self._dir_label.setVisible(not is_point)
+        self._dir_widget.setVisible(not is_point)
+        self._atten_label.setVisible(is_point)
+        self._atten_widget.setVisible(is_point)
 
     def _sync_from_app_state(self) -> None:
         """Synchronize UI controls with current app state.
@@ -406,12 +460,15 @@ class ControlPanel(QtWidgets.QDockWidget):
         try:
             # Light type visibility/enabled
             is_point = self.app_state.light_type == LightType.POINT
-            if self.light_pos_group.isVisible() != is_point:
-                self.light_pos_group.setVisible(is_point)
-            if self.light_dir_group.isVisible() != (not is_point):
-                self.light_dir_group.setVisible(not is_point)
-            if self.light_atten_group.isEnabled() != is_point:
-                self.light_atten_group.setEnabled(is_point)
+            if self._pos_widget.isVisible() != is_point:
+                self._pos_label.setVisible(is_point)
+                self._pos_widget.setVisible(is_point)
+            if self._dir_widget.isVisible() != (not is_point):
+                self._dir_label.setVisible(not is_point)
+                self._dir_widget.setVisible(not is_point)
+            if self._atten_widget.isVisible() != is_point:
+                self._atten_label.setVisible(is_point)
+                self._atten_widget.setVisible(is_point)
 
             # Light type combo
             current_type = self.light_type_combo.currentData()

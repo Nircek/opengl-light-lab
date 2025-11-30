@@ -1,3 +1,4 @@
+import math
 import time
 
 from OpenGL.GL import (  # type: ignore
@@ -7,8 +8,6 @@ from OpenGL.GL import (  # type: ignore
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_TEST,
     GL_DIFFUSE,
-    GL_FRONT,
-    GL_FRONT_AND_BACK,
     GL_LEQUAL,
     GL_LIGHT0,
     GL_LIGHT_MODEL_LOCAL_VIEWER,
@@ -22,12 +21,12 @@ from OpenGL.GL import (  # type: ignore
     GL_POSITION,
     GL_PROJECTION,
     GL_QUADRATIC_ATTENUATION,
-    GL_QUADS,
-    GL_SHININESS,
     GL_SMOOTH,
     GL_SPECULAR,
+    GL_TEXTURE_2D,
     GLfloat,
     glBegin,
+    glBindTexture,
     glClear,
     glClearColor,
     glColor3f,
@@ -41,9 +40,7 @@ from OpenGL.GL import (  # type: ignore
     glLightModeli,
     glLineWidth,
     glLoadIdentity,
-    glMaterialfv,
     glMatrixMode,
-    glNormal3f,
     glOrtho,
     glPopAttrib,
     glPopMatrix,
@@ -55,24 +52,21 @@ from OpenGL.GL import (  # type: ignore
     glVertex3f,
     glViewport,
 )
-from OpenGL.GLU import (  # type: ignore
-    GLU_FLAT,
-    GLU_INSIDE,
-    GLU_OUTSIDE,
-    gluCylinder,
-    gluDeleteQuadric,
-    gluLookAt,
-    gluNewQuadric,
-    gluPerspective,
-    gluQuadricNormals,
-    gluQuadricOrientation,
-    gluSphere,
-)
+from OpenGL.GLU import gluDeleteQuadric, gluLookAt, gluNewQuadric, gluPerspective, gluSphere  # type: ignore
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 from opengl_light_lab import AppState, Projection, Spherical
 from opengl_light_lab.app_state import LightType
+from opengl_light_lab.input_handler import InputHandler
+from opengl_light_lab.materials import (
+    setup_material_blue,
+    setup_material_green,
+    setup_material_red,
+    setup_material_white,
+)
+from opengl_light_lab.primitives import draw_cube, draw_cylinder, draw_quad, draw_textured_cube
+from opengl_light_lab.textures import TextureManager
 
 HELP_TEXT = """
 Controls:
@@ -83,14 +77,6 @@ Controls:
   []        - change FOV (perspective)
   ZX        - change cube distance
   ?         - toggle help overlay
-
-
-TODO:
-- tekstura
-- przynajmniej jedna tekstura
-- światło
-- GLSL
-- monospace font
 """
 FULL_REVOLUTION = 360.0
 
@@ -105,8 +91,8 @@ class GLWidget(QOpenGLWidget):
         self.timer.timeout.connect(self._tick)
         self.timer.start(16)  # ~60Hz
         self._dt = 0.0
-        self._pressed_keys: set[str] = set()
-        self.resize_event: bool = False
+        self._input_handler = InputHandler(app_state)
+        self._texture_manager = TextureManager()
 
     def initializeGL(self) -> None:
         glClearColor(0.15, 0.15, 0.18, 1.0)
@@ -118,6 +104,9 @@ class GLWidget(QOpenGLWidget):
         glShadeModel(GL_SMOOTH)
 
         glEnable(GL_NORMALIZE)
+
+        # Load texture if set
+        self._texture_manager.load_if_changed(self.app_state.current_texture)
 
     def resizeGL(self, w: int, h: int) -> None:
         if h == 0:
@@ -143,6 +132,9 @@ class GLWidget(QOpenGLWidget):
             self._dt += dt
             self.rotation_update(self._dt)
             self._dt = 0.0
+
+        # Check if texture needs to be loaded/updated
+        self._texture_manager.load_if_changed(self.app_state.current_texture)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glMatrixMode(GL_MODELVIEW)
@@ -174,22 +166,30 @@ class GLWidget(QOpenGLWidget):
         glPushMatrix()
         glTranslatef(-self.app_state.cube_distance, 0.0, 0.0)
         glRotatef(self.app_state.rotation_angle, 0, 1, 0)
-        self.setup_material_red()
-        self.draw_cylinder(inside=True)
+        setup_material_red()
+        draw_cylinder(inside=True)
         glPopMatrix()
 
         glPushMatrix()
         glTranslatef(0.0, 0.0, 0.0)
         glRotatef(self.app_state.rotation_angle, 1, 0, 0)
-        self.setup_material_blue()
-        self.draw_raw_cube()
+        if self._texture_manager.is_loaded:
+            setup_material_white()
+            glEnable(GL_TEXTURE_2D)
+            glBindTexture(GL_TEXTURE_2D, self._texture_manager.texture_id)
+            draw_textured_cube()
+            glBindTexture(GL_TEXTURE_2D, 0)
+            glDisable(GL_TEXTURE_2D)
+        else:
+            setup_material_blue()
+            draw_cube()
         glPopMatrix()
 
         glPushMatrix()
         glTranslatef(+self.app_state.cube_distance, 0.0, 0.0)
         glRotatef(self.app_state.rotation_angle, 0, 0, 1)
-        self.setup_material_green()
-        self.draw_cylinder(inside=False)
+        setup_material_green()
+        draw_cylinder(inside=False)
         glPopMatrix()
 
         if self.app_state.show_help:
@@ -268,98 +268,6 @@ class GLWidget(QOpenGLWidget):
         glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER, 1.0 if self.app_state.light_model_local_viewer else 0.0)
         glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1 if self.app_state.light_model_two_side else 0)
 
-    def setup_material_red(self) -> None:
-        mat_ambient = (GLfloat * 4)(0.3, 0.1, 0.1, 1.0)
-        mat_diffuse = (GLfloat * 4)(0.8, 0.3, 0.3, 1.0)
-        mat_specular = (GLfloat * 4)(0.8, 0.8, 0.8, 1.0)
-        mat_shininess = (GLfloat * 1)(50.0)
-        glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient)
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse)
-        glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular)
-        glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess)
-
-    def setup_material_blue(self) -> None:
-        mat_ambient = (GLfloat * 4)(0.1, 0.1, 0.3, 1.0)
-        mat_diffuse = (GLfloat * 4)(0.2, 0.4, 0.8, 1.0)
-        mat_specular = (GLfloat * 4)(1.0, 1.0, 1.0, 1.0)
-        mat_shininess = (GLfloat * 1)(90.0)
-        glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient)
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse)
-        glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular)
-        glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess)
-
-    def setup_material_green(self) -> None:
-        mat_ambient = (GLfloat * 4)(0.1, 0.3, 0.1, 1.0)
-        mat_diffuse = (GLfloat * 4)(0.3, 0.7, 0.3, 1.0)
-        mat_specular = (GLfloat * 4)(0.0, 0.0, 0.0, 1.0)
-        mat_shininess = (GLfloat * 1)(0.0)
-        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)
-        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)
-        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular)
-        glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_shininess)
-
-    def draw_raw_cube(self) -> None:
-        glBegin(GL_QUADS)
-
-        # front (+Z)
-        glColor3f(0.0, 0.0, 1.0)
-        glNormal3f(0.0, 0.0, 1.0)
-        glVertex3f(-0.5, -0.5, +0.5)
-        glVertex3f(+0.5, -0.5, +0.5)
-        glVertex3f(+0.5, +0.5, +0.5)
-        glVertex3f(-0.5, +0.5, +0.5)
-
-        # back (-Z)
-        glColor3f(0.0, 0.0, 1.0)
-        glNormal3f(0.0, 0.0, -1.0)
-        glVertex3f(-0.5, -0.5, -0.5)
-        glVertex3f(-0.5, +0.5, -0.5)
-        glVertex3f(+0.5, +0.5, -0.5)
-        glVertex3f(+0.5, -0.5, -0.5)
-
-        # left (-X)
-        glColor3f(1.0, 0.0, 0.0)
-        glNormal3f(-1.0, 0.0, 0.0)
-        glVertex3f(-0.5, -0.5, -0.5)
-        glVertex3f(-0.5, -0.5, +0.5)
-        glVertex3f(-0.5, +0.5, +0.5)
-        glVertex3f(-0.5, +0.5, -0.5)
-
-        # right (+X)
-        glColor3f(1.0, 0.0, 0.0)
-        glNormal3f(1.0, 0.0, 0.0)
-        glVertex3f(+0.5, -0.5, -0.5)
-        glVertex3f(+0.5, +0.5, -0.5)
-        glVertex3f(+0.5, +0.5, +0.5)
-        glVertex3f(+0.5, -0.5, +0.5)
-
-        # top (+Y)
-        glColor3f(0.0, 1.0, 0.0)
-        glNormal3f(0.0, 1.0, 0.0)
-        glVertex3f(-0.5, +0.5, -0.5)
-        glVertex3f(-0.5, +0.5, +0.5)
-        glVertex3f(+0.5, +0.5, +0.5)
-        glVertex3f(+0.5, +0.5, -0.5)
-
-        # bottom (-Y)
-        glNormal3f(0.0, -1.0, 0.0)
-        glVertex3f(-0.5, -0.5, -0.5)
-        glVertex3f(+0.5, -0.5, -0.5)
-        glVertex3f(+0.5, -0.5, +0.5)
-        glVertex3f(-0.5, -0.5, +0.5)
-
-        glEnd()
-
-    def draw_cylinder(self, inside: bool = False) -> None:
-        glPushMatrix()
-        glColor3f(1.0, 1.0, 0.0)
-        quad = gluNewQuadric()
-        gluQuadricOrientation(quad, GLU_INSIDE if inside else GLU_OUTSIDE)
-        gluQuadricNormals(quad, GLU_FLAT)
-        gluCylinder(quad, 0.5, 0.2, 1.0, 30, 10)
-        gluDeleteQuadric(quad)
-        glPopMatrix()
-
     def draw_light_marker(self) -> None:
         glPushAttrib(GL_LIGHTING_BIT)
         glDisable(GL_LIGHTING)
@@ -372,22 +280,39 @@ class GLWidget(QOpenGLWidget):
             gluDeleteQuadric(quad)
             glPopMatrix()
         else:
-            # Draw a line indicating direction from origin
-            glLineWidth(2.0)
-            glBegin(GL_LINES)
-            glColor3f(1.0, 1.0, 0.0)
-            glVertex3f(0.0, 0.0, 0.0)
-            dx, dy, dz = self.app_state.light_direction
-            glVertex3f(dx, dy, dz)
-            glEnd()
+            self._draw_directional_light_sun()
         glPopAttrib()
+
+    def _draw_directional_light_sun(self) -> None:
+        direction = self.app_state.light_direction
+        length = math.sqrt(sum(d * d for d in direction))
+        if length < 0.001:
+            return
+
+        sun_dist = self.app_state.camera.distance * 2.0
+        sun_pos = tuple(d / length * sun_dist for d in direction)
+
+        cam = self.app_state.camera
+        to_cam = (cam.x - sun_pos[0], cam.y - sun_pos[1], cam.z - sun_pos[2])
+        dist_to_cam = math.sqrt(sum(t * t for t in to_cam))
+        yaw = math.atan2(to_cam[0], to_cam[2]) if dist_to_cam > 0.001 else 0.0
+        pitch = math.asin(to_cam[1] / dist_to_cam) if dist_to_cam > 0.001 else 0.0
+
+        glPushMatrix()
+        glTranslatef(*sun_pos)
+        glRotatef(yaw * 180.0 / math.pi, 0, 1, 0)
+        glRotatef(-pitch * 180.0 / math.pi, 1, 0, 0)
+
+        glColor3f(1.0, 1.0, 0.0)
+        draw_quad(0.3)
+        glPopMatrix()
 
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> None:
         key = ev.key()
         txt = ev.text().lower()
 
         if txt:
-            self._pressed_keys.add(txt)
+            self._input_handler.key_pressed(txt)
         if txt == "?":
             self.app_state.show_help = not self.app_state.show_help
 
@@ -398,78 +323,14 @@ class GLWidget(QOpenGLWidget):
 
     def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> None:
         txt = ev.text().lower()
-        if txt and txt in self._pressed_keys:
-            self._pressed_keys.remove(txt)
+        if txt:
+            self._input_handler.key_released(txt)
         super().keyReleaseEvent(ev)
 
     def _tick(self) -> None:
-        if self.app_state.light_type == LightType.POINT:
-            x, y, z = self.app_state.light_position
-            if "u" in self._pressed_keys:
-                z -= 0.05
-            if "j" in self._pressed_keys:
-                z += 0.05
-            if "h" in self._pressed_keys:
-                x -= 0.05
-            if "k" in self._pressed_keys:
-                x += 0.05
-            if "y" in self._pressed_keys:
-                y += 0.05
-            if "i" in self._pressed_keys:
-                y -= 0.05
-            self.app_state.light_position = (x, y, z)
-        else:
-            dx, dy, dz = self.app_state.light_direction
-            if "u" in self._pressed_keys:
-                dz -= 0.05
-            if "j" in self._pressed_keys:
-                dz += 0.05
-            if "h" in self._pressed_keys:
-                dx -= 0.05
-            if "k" in self._pressed_keys:
-                dx += 0.05
-            if "y" in self._pressed_keys:
-                dy += 0.05
-            if "i" in self._pressed_keys:
-                dy -= 0.05
-            self.app_state.light_direction = (dx, dy, dz)
-
-        if "q" in self._pressed_keys:
-            if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.app_state.camera.distance += 0.02
-            else:
-                self.app_state.camera_ortho_half_height += 0.02
-                self.post_resize_event()
-        if "e" in self._pressed_keys:
-            if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.app_state.camera.distance -= 0.02
-            else:
-                self.app_state.camera_ortho_half_height = max(0.01, self.app_state.camera_ortho_half_height - 0.02)
-                self.post_resize_event()
-
-        if "w" in self._pressed_keys:
-            self.app_state.camera.theta += 0.02
-        if "s" in self._pressed_keys:
-            self.app_state.camera.theta -= 0.02
-        if "a" in self._pressed_keys:
-            self.app_state.camera.phi += 0.02
-        if "d" in self._pressed_keys:
-            self.app_state.camera.phi -= 0.02
-
-        if "[" in self._pressed_keys:
-            self.app_state.camera_perspective_fov = max(10.0, self.app_state.camera_perspective_fov - 0.2)
-            if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.post_resize_event()
-        if "]" in self._pressed_keys:
-            self.app_state.camera_perspective_fov = min(120.0, self.app_state.camera_perspective_fov + 0.2)
-            if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.post_resize_event()
-
-        if "z" in self._pressed_keys:
-            self.app_state.cube_distance += 0.02
-        if "x" in self._pressed_keys:
-            self.app_state.cube_distance -= 0.02
-
+        needs_resize = self._input_handler.update()
+        if needs_resize:
+            self.post_resize_event()
         self.update()
 
     def post_resize_event(self) -> None:
