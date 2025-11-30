@@ -72,11 +72,12 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
 from opengl_light_lab import AppState, Projection, Spherical
+from opengl_light_lab.app_state import LightType
 
 HELP_TEXT = """
 Controls:
   Esc       - quit
-  UHJKYI    - move light (Z +/- / X +/- / Y +/-)
+  UHJKYI    - move light or direction (Z +/- / X +/- / Y +/-)
   QE        - zoom out/in (or change ortho half-height)
   WSAD      - change camera angles (theta / phi)
   []        - change FOV (perspective)
@@ -85,11 +86,7 @@ Controls:
 
 
 TODO:
-- animacja obrotu
 - tekstura
-- sterowanie światłem (wszystkie parametry)
-- kilka obiektów 3d
-- sterowanie obiektem, obrót kamery
 - przynajmniej jedna tekstura
 - światło
 - GLSL
@@ -242,20 +239,31 @@ class GLWidget(QOpenGLWidget):
         glPopAttrib()
 
     def setup_light(self) -> None:
-        light_pos = (GLfloat * 4)(self.app_state.light_x, self.app_state.light_y, self.app_state.light_z, 1.0)
-        light_diffuse = (GLfloat * 4)(1.0, 1.0, 1.0, 1.0)
-        light_ambient = (GLfloat * 4)(0.2, 0.2, 0.2, 1.0)
-        light_specular = (GLfloat * 4)(1.0, 1.0, 1.0, 1.0)
+        if self.app_state.light_type == LightType.POINT:
+            light_pos = (GLfloat * 4)(*self.app_state.light_position, 1.0)
+        else:
+            light_pos = (GLfloat * 4)(*self.app_state.light_direction, 0.0)
+
+        light_diffuse = (GLfloat * 4)(*self.app_state.light_diffuse, 1.0)
+        light_ambient = (GLfloat * 4)(*self.app_state.light_ambient, 1.0)
+        light_specular = (GLfloat * 4)(*self.app_state.light_specular, 1.0)
 
         glLightfv(GL_LIGHT0, GL_POSITION, light_pos)
         glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse)
         glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient)
         glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular)
 
-        glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0)
-        glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
-        glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
-        glLightf(GL_LIGHT0, self.app_state.light_attenuation_mode, self.app_state.light_attenuation_value)
+        # Attenuation: only for point light
+        if self.app_state.light_type == LightType.POINT:
+            glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0)
+            glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
+            glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
+            glLightf(GL_LIGHT0, self.app_state.light_attenuation_mode, self.app_state.light_attenuation_value)
+        else:
+            # No attenuation for directional
+            glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0)
+            glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
+            glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
 
         glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER, 1.0 if self.app_state.light_model_local_viewer else 0.0)
         glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1 if self.app_state.light_model_two_side else 0)
@@ -353,15 +361,26 @@ class GLWidget(QOpenGLWidget):
         glPopMatrix()
 
     def draw_light_marker(self) -> None:
-        glPushMatrix()
         glPushAttrib(GL_LIGHTING_BIT)
         glDisable(GL_LIGHTING)
-        glTranslatef(self.app_state.light_x, self.app_state.light_y, self.app_state.light_z)
-        quad = gluNewQuadric()
-        gluSphere(quad, 0.1, 10, 10)
-        gluDeleteQuadric(quad)
+        if self.app_state.light_type == LightType.POINT:
+            glPushMatrix()
+            x, y, z = self.app_state.light_position
+            glTranslatef(x, y, z)
+            quad = gluNewQuadric()
+            gluSphere(quad, 0.1, 10, 10)
+            gluDeleteQuadric(quad)
+            glPopMatrix()
+        else:
+            # Draw a line indicating direction from origin
+            glLineWidth(2.0)
+            glBegin(GL_LINES)
+            glColor3f(1.0, 1.0, 0.0)
+            glVertex3f(0.0, 0.0, 0.0)
+            dx, dy, dz = self.app_state.light_direction
+            glVertex3f(dx, dy, dz)
+            glEnd()
         glPopAttrib()
-        glPopMatrix()
 
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> None:
         key = ev.key()
@@ -384,18 +403,36 @@ class GLWidget(QOpenGLWidget):
         super().keyReleaseEvent(ev)
 
     def _tick(self) -> None:
-        if "u" in self._pressed_keys:
-            self.app_state.light_z -= 0.05
-        if "j" in self._pressed_keys:
-            self.app_state.light_z += 0.05
-        if "h" in self._pressed_keys:
-            self.app_state.light_x -= 0.05
-        if "k" in self._pressed_keys:
-            self.app_state.light_x += 0.05
-        if "y" in self._pressed_keys:
-            self.app_state.light_y += 0.05
-        if "i" in self._pressed_keys:
-            self.app_state.light_y -= 0.05
+        if self.app_state.light_type == LightType.POINT:
+            x, y, z = self.app_state.light_position
+            if "u" in self._pressed_keys:
+                z -= 0.05
+            if "j" in self._pressed_keys:
+                z += 0.05
+            if "h" in self._pressed_keys:
+                x -= 0.05
+            if "k" in self._pressed_keys:
+                x += 0.05
+            if "y" in self._pressed_keys:
+                y += 0.05
+            if "i" in self._pressed_keys:
+                y -= 0.05
+            self.app_state.light_position = (x, y, z)
+        else:
+            dx, dy, dz = self.app_state.light_direction
+            if "u" in self._pressed_keys:
+                dz -= 0.05
+            if "j" in self._pressed_keys:
+                dz += 0.05
+            if "h" in self._pressed_keys:
+                dx -= 0.05
+            if "k" in self._pressed_keys:
+                dx += 0.05
+            if "y" in self._pressed_keys:
+                dy += 0.05
+            if "i" in self._pressed_keys:
+                dy -= 0.05
+            self.app_state.light_direction = (dx, dy, dz)
 
         if "q" in self._pressed_keys:
             if self.app_state.camera_projection == Projection.PERSPECTIVE:

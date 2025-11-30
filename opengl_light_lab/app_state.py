@@ -29,6 +29,11 @@ class Projection(StrEnum):
     PERSPECTIVE = "persp"
 
 
+class LightType(StrEnum):
+    POINT = "point"
+    DIRECTIONAL = "directional"
+
+
 @dataclass
 class AppState:
     camera: Spherical = field(default_factory=lambda: Spherical(3.5, 0.4, 0.8))
@@ -36,9 +41,17 @@ class AppState:
     camera_perspective_fov: float = 60.0
     camera_ortho_half_height: float = 1.0
 
-    light_x: float = 0.5
-    light_y: float = 0.5
-    light_z: float = 0.5
+    # Light type and parameters
+    light_type: LightType = LightType.POINT
+    light_position: tuple[float, float, float] = (0.5, 0.5, 0.5)
+
+    # Direction vector for directional light
+    light_direction: tuple[float, float, float] = (-1.0, -1.0, -1.0)
+
+    # Light colors
+    light_diffuse: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    light_ambient: tuple[float, float, float] = (0.2, 0.2, 0.2)
+    light_specular: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
     light_attenuation_mode: int = GL_CONSTANT_ATTENUATION
     light_attenuation_value: float = 1.0

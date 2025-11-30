@@ -4,6 +4,7 @@ from OpenGL.GL import GL_CONSTANT_ATTENUATION, GL_LINEAR_ATTENUATION, GL_QUADRAT
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from opengl_light_lab import AppState, Projection
+from opengl_light_lab.app_state import LightType
 
 if TYPE_CHECKING:
     from opengl_light_lab.main_window import MainWindow
@@ -129,36 +130,81 @@ class ControlPanel(QtWidgets.QDockWidget):
         camera_group.setLayout(camera_layout)
         layout.addWidget(camera_group)
 
+        # ===== Light Type Section =====
+        light_type_group = QtWidgets.QGroupBox("Light Type")
+        light_type_layout = QtWidgets.QHBoxLayout()
+
+        self.light_type_combo = QtWidgets.QComboBox()
+        self.light_type_combo.addItem("Point", LightType.POINT)
+        self.light_type_combo.addItem("Directional", LightType.DIRECTIONAL)
+        # Set current
+        for i in range(self.light_type_combo.count()):
+            if self.light_type_combo.itemData(i) == self.app_state.light_type:
+                self.light_type_combo.setCurrentIndex(i)
+                break
+        self.light_type_combo.currentIndexChanged.connect(self._on_light_type_changed)
+        light_type_layout.addWidget(self.light_type_combo)
+        light_type_group.setLayout(light_type_layout)
+        layout.addWidget(light_type_group)
+
         # ===== Light Position Section =====
-        light_pos_group = QtWidgets.QGroupBox("Light Position")
+        self.light_pos_group = QtWidgets.QGroupBox("Light Position (Point)")
         light_pos_layout = QtWidgets.QFormLayout()
 
-        self.light_x_spin = QtWidgets.QDoubleSpinBox()
-        self.light_x_spin.setRange(-10.0, 10.0)
-        self.light_x_spin.setSingleStep(0.1)
-        self.light_x_spin.setValue(self.app_state.light_x)
-        self.light_x_spin.valueChanged.connect(self._on_light_x_changed)
-        light_pos_layout.addRow("X:", self.light_x_spin)
+        self.pos_x_spin = QtWidgets.QDoubleSpinBox()
+        self.pos_x_spin.setRange(-10.0, 10.0)
+        self.pos_x_spin.setSingleStep(0.1)
+        self.pos_x_spin.setValue(self.app_state.light_position[0])
+        self.pos_x_spin.valueChanged.connect(self._on_pos_x_changed)
+        light_pos_layout.addRow("X:", self.pos_x_spin)
 
-        self.light_y_spin = QtWidgets.QDoubleSpinBox()
-        self.light_y_spin.setRange(-10.0, 10.0)
-        self.light_y_spin.setSingleStep(0.1)
-        self.light_y_spin.setValue(self.app_state.light_y)
-        self.light_y_spin.valueChanged.connect(self._on_light_y_changed)
-        light_pos_layout.addRow("Y:", self.light_y_spin)
+        self.pos_y_spin = QtWidgets.QDoubleSpinBox()
+        self.pos_y_spin.setRange(-10.0, 10.0)
+        self.pos_y_spin.setSingleStep(0.1)
+        self.pos_y_spin.setValue(self.app_state.light_position[1])
+        self.pos_y_spin.valueChanged.connect(self._on_pos_y_changed)
+        light_pos_layout.addRow("Y:", self.pos_y_spin)
 
-        self.light_z_spin = QtWidgets.QDoubleSpinBox()
-        self.light_z_spin.setRange(-10.0, 10.0)
-        self.light_z_spin.setSingleStep(0.1)
-        self.light_z_spin.setValue(self.app_state.light_z)
-        self.light_z_spin.valueChanged.connect(self._on_light_z_changed)
-        light_pos_layout.addRow("Z:", self.light_z_spin)
+        self.pos_z_spin = QtWidgets.QDoubleSpinBox()
+        self.pos_z_spin.setRange(-10.0, 10.0)
+        self.pos_z_spin.setSingleStep(0.1)
+        self.pos_z_spin.setValue(self.app_state.light_position[2])
+        self.pos_z_spin.valueChanged.connect(self._on_pos_z_changed)
+        light_pos_layout.addRow("Z:", self.pos_z_spin)
 
-        light_pos_group.setLayout(light_pos_layout)
-        layout.addWidget(light_pos_group)
+        self.light_pos_group.setLayout(light_pos_layout)
+        layout.addWidget(self.light_pos_group)
+
+        # ===== Light Direction Section =====
+        self.light_dir_group = QtWidgets.QGroupBox("Light Direction (Directional)")
+        light_layout = QtWidgets.QFormLayout()
+
+        self.dir_x_spin = QtWidgets.QDoubleSpinBox()
+        self.dir_x_spin.setRange(-10.0, 10.0)
+        self.dir_x_spin.setSingleStep(0.1)
+        self.dir_x_spin.setValue(self.app_state.light_direction[0])
+        self.dir_x_spin.valueChanged.connect(self._on_dir_x_changed)
+        light_layout.addRow("Dir X:", self.dir_x_spin)
+
+        self.dir_y_spin = QtWidgets.QDoubleSpinBox()
+        self.dir_y_spin.setRange(-10.0, 10.0)
+        self.dir_y_spin.setSingleStep(0.1)
+        self.dir_y_spin.setValue(self.app_state.light_direction[1])
+        self.dir_y_spin.valueChanged.connect(self._on_dir_y_changed)
+        light_layout.addRow("Dir Y:", self.dir_y_spin)
+
+        self.dir_z_spin = QtWidgets.QDoubleSpinBox()
+        self.dir_z_spin.setRange(-10.0, 10.0)
+        self.dir_z_spin.setSingleStep(0.1)
+        self.dir_z_spin.setValue(self.app_state.light_direction[2])
+        self.dir_z_spin.valueChanged.connect(self._on_dir_z_changed)
+        light_layout.addRow("Dir Z:", self.dir_z_spin)
+
+        self.light_dir_group.setLayout(light_layout)
+        layout.addWidget(self.light_dir_group)
 
         # ===== Light Attenuation Section =====
-        light_atten_group = QtWidgets.QGroupBox("Light Attenuation")
+        self.light_atten_group = QtWidgets.QGroupBox("Light Attenuation (Point only)")
         light_atten_layout = QtWidgets.QFormLayout()
 
         self.atten_mode_combo = QtWidgets.QComboBox()
@@ -181,8 +227,30 @@ class ControlPanel(QtWidgets.QDockWidget):
         self.atten_value_spin.valueChanged.connect(self._on_attenuation_value_changed)
         light_atten_layout.addRow("Value:", self.atten_value_spin)
 
-        light_atten_group.setLayout(light_atten_layout)
-        layout.addWidget(light_atten_group)
+        self.light_atten_group.setLayout(light_atten_layout)
+        layout.addWidget(self.light_atten_group)
+
+        # ===== Light Colors Section =====
+        self.light_colors_group = QtWidgets.QGroupBox("Light Colors")
+        light_colors_layout = QtWidgets.QFormLayout()
+
+        self.diffuse_btn = QtWidgets.QPushButton("Pick Diffuse")
+        self.diffuse_btn.clicked.connect(self._pick_diffuse)
+        self._update_color_button(self.diffuse_btn, self.app_state.light_diffuse)
+        light_colors_layout.addRow("Diffuse:", self.diffuse_btn)
+
+        self.ambient_btn = QtWidgets.QPushButton("Pick Ambient")
+        self.ambient_btn.clicked.connect(self._pick_ambient)
+        self._update_color_button(self.ambient_btn, self.app_state.light_ambient)
+        light_colors_layout.addRow("Ambient:", self.ambient_btn)
+
+        self.specular_btn = QtWidgets.QPushButton("Pick Specular")
+        self.specular_btn.clicked.connect(self._pick_specular)
+        self._update_color_button(self.specular_btn, self.app_state.light_specular)
+        light_colors_layout.addRow("Specular:", self.specular_btn)
+
+        self.light_colors_group.setLayout(light_colors_layout)
+        layout.addWidget(self.light_colors_group)
 
         # ===== Light Model Section =====
         light_model_group = QtWidgets.QGroupBox("Light Model")
@@ -274,14 +342,31 @@ class ControlPanel(QtWidgets.QDockWidget):
         if self.app_state.camera_projection == Projection.ORTHOGONAL and self.parent():
             cast("MainWindow", self.parent()).on_projection_changed()
 
-    def _on_light_x_changed(self, value: float) -> None:
-        self.app_state.light_x = value
+    # Position handlers
+    def _on_pos_x_changed(self, value: float) -> None:
+        _x, y, z = self.app_state.light_position
+        self.app_state.light_position = (value, y, z)
 
-    def _on_light_y_changed(self, value: float) -> None:
-        self.app_state.light_y = value
+    def _on_pos_y_changed(self, value: float) -> None:
+        x, _y, z = self.app_state.light_position
+        self.app_state.light_position = (x, value, z)
 
-    def _on_light_z_changed(self, value: float) -> None:
-        self.app_state.light_z = value
+    def _on_pos_z_changed(self, value: float) -> None:
+        x, y, _z = self.app_state.light_position
+        self.app_state.light_position = (x, y, value)
+
+    # Direction handlers
+    def _on_dir_x_changed(self, value: float) -> None:
+        _dx, dy, dz = self.app_state.light_direction
+        self.app_state.light_direction = (value, dy, dz)
+
+    def _on_dir_y_changed(self, value: float) -> None:
+        dx, _dy, dz = self.app_state.light_direction
+        self.app_state.light_direction = (dx, value, dz)
+
+    def _on_dir_z_changed(self, value: float) -> None:
+        dx, dy, _dz = self.app_state.light_direction
+        self.app_state.light_direction = (dx, dy, value)
 
     def _on_attenuation_mode_changed(self, index: int) -> None:
         self.app_state.light_attenuation_mode = self.atten_mode_combo.itemData(index)
@@ -298,6 +383,15 @@ class ControlPanel(QtWidgets.QDockWidget):
     def _on_cube_distance_changed(self, value: float) -> None:
         self.app_state.cube_distance = value
 
+    # New light controls handlers
+    def _on_light_type_changed(self, index: int) -> None:
+        self.app_state.light_type = self.light_type_combo.itemData(index)
+        # Update visibility/enabled status immediately
+        is_point = self.app_state.light_type == LightType.POINT
+        self.light_pos_group.setVisible(is_point)
+        self.light_dir_group.setVisible(not is_point)
+        self.light_atten_group.setEnabled(is_point)
+
     def _sync_from_app_state(self) -> None:
         """Synchronize UI controls with current app state.
 
@@ -310,6 +404,25 @@ class ControlPanel(QtWidgets.QDockWidget):
 
         self._updating_from_state = True
         try:
+            # Light type visibility/enabled
+            is_point = self.app_state.light_type == LightType.POINT
+            if self.light_pos_group.isVisible() != is_point:
+                self.light_pos_group.setVisible(is_point)
+            if self.light_dir_group.isVisible() != (not is_point):
+                self.light_dir_group.setVisible(not is_point)
+            if self.light_atten_group.isEnabled() != is_point:
+                self.light_atten_group.setEnabled(is_point)
+
+            # Light type combo
+            current_type = self.light_type_combo.currentData()
+            if current_type != self.app_state.light_type:
+                self.light_type_combo.blockSignals(True)
+                for i in range(self.light_type_combo.count()):
+                    if self.light_type_combo.itemData(i) == self.app_state.light_type:
+                        self.light_type_combo.setCurrentIndex(i)
+                        break
+                self.light_type_combo.blockSignals(False)
+
             # Rendering checkboxes
             if self.lighting_cb.isChecked() != self.app_state.lighting_enabled:
                 self.lighting_cb.blockSignals(True)
@@ -374,20 +487,34 @@ class ControlPanel(QtWidgets.QDockWidget):
                 self.ortho_height_spin.blockSignals(False)
 
             # Light position spinboxes
-            if abs(self.light_x_spin.value() - self.app_state.light_x) > 1e-6:
-                self.light_x_spin.blockSignals(True)
-                self.light_x_spin.setValue(self.app_state.light_x)
-                self.light_x_spin.blockSignals(False)
+            px, py, pz = self.app_state.light_position
+            if abs(self.pos_x_spin.value() - px) > 1e-6:
+                self.pos_x_spin.blockSignals(True)
+                self.pos_x_spin.setValue(px)
+                self.pos_x_spin.blockSignals(False)
+            if abs(self.pos_y_spin.value() - py) > 1e-6:
+                self.pos_y_spin.blockSignals(True)
+                self.pos_y_spin.setValue(py)
+                self.pos_y_spin.blockSignals(False)
+            if abs(self.pos_z_spin.value() - pz) > 1e-6:
+                self.pos_z_spin.blockSignals(True)
+                self.pos_z_spin.setValue(pz)
+                self.pos_z_spin.blockSignals(False)
 
-            if abs(self.light_y_spin.value() - self.app_state.light_y) > 1e-6:
-                self.light_y_spin.blockSignals(True)
-                self.light_y_spin.setValue(self.app_state.light_y)
-                self.light_y_spin.blockSignals(False)
-
-            if abs(self.light_z_spin.value() - self.app_state.light_z) > 1e-6:
-                self.light_z_spin.blockSignals(True)
-                self.light_z_spin.setValue(self.app_state.light_z)
-                self.light_z_spin.blockSignals(False)
+            # Light direction spinboxes
+            dx, dy, dz = self.app_state.light_direction
+            if abs(self.dir_x_spin.value() - dx) > 1e-6:
+                self.dir_x_spin.blockSignals(True)
+                self.dir_x_spin.setValue(dx)
+                self.dir_x_spin.blockSignals(False)
+            if abs(self.dir_y_spin.value() - dy) > 1e-6:
+                self.dir_y_spin.blockSignals(True)
+                self.dir_y_spin.setValue(dy)
+                self.dir_y_spin.blockSignals(False)
+            if abs(self.dir_z_spin.value() - dz) > 1e-6:
+                self.dir_z_spin.blockSignals(True)
+                self.dir_z_spin.setValue(dz)
+                self.dir_z_spin.blockSignals(False)
 
             # Attenuation combo box
             current_mode = self.atten_mode_combo.currentData()
@@ -403,6 +530,11 @@ class ControlPanel(QtWidgets.QDockWidget):
                 self.atten_value_spin.blockSignals(True)
                 self.atten_value_spin.setValue(self.app_state.light_attenuation_value)
                 self.atten_value_spin.blockSignals(False)
+
+            # Light colors buttons preview
+            self._update_color_button(self.diffuse_btn, self.app_state.light_diffuse)
+            self._update_color_button(self.ambient_btn, self.app_state.light_ambient)
+            self._update_color_button(self.specular_btn, self.app_state.light_specular)
 
             # Light model checkboxes
             if self.local_viewer_cb.isChecked() != self.app_state.light_model_local_viewer:
@@ -428,3 +560,33 @@ class ControlPanel(QtWidgets.QDockWidget):
         """Clean up resources when the widget is closed."""
         self._sync_timer.stop()
         super().closeEvent(event)
+
+    # Color pickers helpers
+    def _pick_color(self, initial: tuple[float, float, float]) -> tuple[float, float, float] | None:
+        r, g, b = [int(255 * max(0.0, min(1.0, c))) for c in initial]
+        color = QtWidgets.QColorDialog.getColor(QtGui.QColor(r, g, b), self, "Select Color")
+        if color.isValid():
+            return (color.redF(), color.greenF(), color.blueF())
+        return None
+
+    def _update_color_button(self, btn: QtWidgets.QPushButton, rgb: tuple[float, float, float]) -> None:
+        r, g, b = [int(255 * max(0.0, min(1.0, c))) for c in rgb]
+        btn.setStyleSheet(f"background-color: rgb({r}, {g}, {b});")
+
+    def _pick_diffuse(self) -> None:
+        res = self._pick_color(self.app_state.light_diffuse)
+        if res is not None:
+            self.app_state.light_diffuse = res
+            self._update_color_button(self.diffuse_btn, res)
+
+    def _pick_ambient(self) -> None:
+        res = self._pick_color(self.app_state.light_ambient)
+        if res is not None:
+            self.app_state.light_ambient = res
+            self._update_color_button(self.ambient_btn, res)
+
+    def _pick_specular(self) -> None:
+        res = self._pick_color(self.app_state.light_specular)
+        if res is not None:
+            self.app_state.light_specular = res
+            self._update_color_button(self.specular_btn, res)
