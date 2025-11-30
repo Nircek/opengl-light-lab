@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, cast
 
 from OpenGL.GL import GL_CONSTANT_ATTENUATION, GL_LINEAR_ATTENUATION, GL_QUADRATIC_ATTENUATION  # type: ignore
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from opengl_light_lab import AppState, Projection
 
@@ -223,6 +223,14 @@ class ControlPanel(QtWidgets.QDockWidget):
 
         self.setWidget(main_widget)
 
+        # Set up periodic sync timer
+        self._sync_timer = QtCore.QTimer(self)
+        self._sync_timer.timeout.connect(self._sync_from_app_state)
+        self._sync_timer.start(500)  # 500ms = 0.5 seconds
+
+        # Flag to prevent update loops
+        self._updating_from_state = False
+
     def _on_lighting_changed(self, state: int) -> None:
         self.app_state.lighting_enabled = bool(state)
 
@@ -289,3 +297,134 @@ class ControlPanel(QtWidgets.QDockWidget):
 
     def _on_cube_distance_changed(self, value: float) -> None:
         self.app_state.cube_distance = value
+
+    def _sync_from_app_state(self) -> None:
+        """Synchronize UI controls with current app state.
+
+        This method is called periodically to ensure the UI reflects any
+        changes made to the app state from external sources. Uses signal
+        blocking to prevent triggering change handlers during sync.
+        """
+        if self._updating_from_state:
+            return
+
+        self._updating_from_state = True
+        try:
+            # Rendering checkboxes
+            if self.lighting_cb.isChecked() != self.app_state.lighting_enabled:
+                self.lighting_cb.blockSignals(True)
+                self.lighting_cb.setChecked(self.app_state.lighting_enabled)
+                self.lighting_cb.blockSignals(False)
+
+            if self.depth_test_cb.isChecked() != self.app_state.depth_test:
+                self.depth_test_cb.blockSignals(True)
+                self.depth_test_cb.setChecked(self.app_state.depth_test)
+                self.depth_test_cb.blockSignals(False)
+
+            if self.show_axis_cb.isChecked() != self.app_state.show_axis:
+                self.show_axis_cb.blockSignals(True)
+                self.show_axis_cb.setChecked(self.app_state.show_axis)
+                self.show_axis_cb.blockSignals(False)
+
+            if self.show_light_cb.isChecked() != self.app_state.show_light_position:
+                self.show_light_cb.blockSignals(True)
+                self.show_light_cb.setChecked(self.app_state.show_light_position)
+                self.show_light_cb.blockSignals(False)
+
+            # Animation checkbox
+            if self.auto_rotate_cb.isChecked() != self.app_state.auto_rotate:
+                self.auto_rotate_cb.blockSignals(True)
+                self.auto_rotate_cb.setChecked(self.app_state.auto_rotate)
+                self.auto_rotate_cb.blockSignals(False)
+
+            # Projection radio buttons
+            is_perspective = self.app_state.camera_projection == Projection.PERSPECTIVE
+            if self.proj_persp_rb.isChecked() != is_perspective:
+                self.proj_persp_rb.blockSignals(True)
+                self.proj_ortho_rb.blockSignals(True)
+                self.proj_persp_rb.setChecked(is_perspective)
+                self.proj_ortho_rb.setChecked(not is_perspective)
+                self.proj_persp_rb.blockSignals(False)
+                self.proj_ortho_rb.blockSignals(False)
+
+            # Camera spinboxes
+            if abs(self.camera_distance_spin.value() - self.app_state.camera.distance) > 1e-6:
+                self.camera_distance_spin.blockSignals(True)
+                self.camera_distance_spin.setValue(self.app_state.camera.distance)
+                self.camera_distance_spin.blockSignals(False)
+
+            if abs(self.camera_theta_spin.value() - self.app_state.camera.theta) > 1e-6:
+                self.camera_theta_spin.blockSignals(True)
+                self.camera_theta_spin.setValue(self.app_state.camera.theta)
+                self.camera_theta_spin.blockSignals(False)
+
+            if abs(self.camera_phi_spin.value() - self.app_state.camera.phi) > 1e-6:
+                self.camera_phi_spin.blockSignals(True)
+                self.camera_phi_spin.setValue(self.app_state.camera.phi)
+                self.camera_phi_spin.blockSignals(False)
+
+            if abs(self.fov_spin.value() - self.app_state.camera_perspective_fov) > 1e-6:
+                self.fov_spin.blockSignals(True)
+                self.fov_spin.setValue(self.app_state.camera_perspective_fov)
+                self.fov_spin.blockSignals(False)
+
+            if abs(self.ortho_height_spin.value() - self.app_state.camera_ortho_half_height) > 1e-6:
+                self.ortho_height_spin.blockSignals(True)
+                self.ortho_height_spin.setValue(self.app_state.camera_ortho_half_height)
+                self.ortho_height_spin.blockSignals(False)
+
+            # Light position spinboxes
+            if abs(self.light_x_spin.value() - self.app_state.light_x) > 1e-6:
+                self.light_x_spin.blockSignals(True)
+                self.light_x_spin.setValue(self.app_state.light_x)
+                self.light_x_spin.blockSignals(False)
+
+            if abs(self.light_y_spin.value() - self.app_state.light_y) > 1e-6:
+                self.light_y_spin.blockSignals(True)
+                self.light_y_spin.setValue(self.app_state.light_y)
+                self.light_y_spin.blockSignals(False)
+
+            if abs(self.light_z_spin.value() - self.app_state.light_z) > 1e-6:
+                self.light_z_spin.blockSignals(True)
+                self.light_z_spin.setValue(self.app_state.light_z)
+                self.light_z_spin.blockSignals(False)
+
+            # Attenuation combo box
+            current_mode = self.atten_mode_combo.currentData()
+            if current_mode != self.app_state.light_attenuation_mode:
+                self.atten_mode_combo.blockSignals(True)
+                for i in range(self.atten_mode_combo.count()):
+                    if self.atten_mode_combo.itemData(i) == self.app_state.light_attenuation_mode:
+                        self.atten_mode_combo.setCurrentIndex(i)
+                        break
+                self.atten_mode_combo.blockSignals(False)
+
+            if abs(self.atten_value_spin.value() - self.app_state.light_attenuation_value) > 1e-6:
+                self.atten_value_spin.blockSignals(True)
+                self.atten_value_spin.setValue(self.app_state.light_attenuation_value)
+                self.atten_value_spin.blockSignals(False)
+
+            # Light model checkboxes
+            if self.local_viewer_cb.isChecked() != self.app_state.light_model_local_viewer:
+                self.local_viewer_cb.blockSignals(True)
+                self.local_viewer_cb.setChecked(self.app_state.light_model_local_viewer)
+                self.local_viewer_cb.blockSignals(False)
+
+            if self.two_side_cb.isChecked() != self.app_state.light_model_two_side:
+                self.two_side_cb.blockSignals(True)
+                self.two_side_cb.setChecked(self.app_state.light_model_two_side)
+                self.two_side_cb.blockSignals(False)
+
+            # Object spinbox
+            if abs(self.cube_distance_spin.value() - self.app_state.cube_distance) > 1e-6:
+                self.cube_distance_spin.blockSignals(True)
+                self.cube_distance_spin.setValue(self.app_state.cube_distance)
+                self.cube_distance_spin.blockSignals(False)
+
+        finally:
+            self._updating_from_state = False
+
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        """Clean up resources when the widget is closed."""
+        self._sync_timer.stop()
+        super().closeEvent(event)

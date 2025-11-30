@@ -1,4 +1,4 @@
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from opengl_light_lab import AppState, ControlPanel, GLWidget
 
@@ -18,8 +18,4 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(1280, 768)
 
     def on_projection_changed(self) -> None:
-        app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is None:
-            print("No QCoreApplication instance found")
-            return
-        app_instance.postEvent(self.gl, QtGui.QResizeEvent(size := self.gl.size(), size))
+        self.gl.post_resize_event()

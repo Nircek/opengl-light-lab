@@ -402,13 +402,13 @@ class GLWidget(QOpenGLWidget):
                 self.app_state.camera.distance += 0.02
             else:
                 self.app_state.camera_ortho_half_height += 0.02
-                self.resizeGL(self.width(), self.height())
+                self.post_resize_event()
         if "e" in self._pressed_keys:
             if self.app_state.camera_projection == Projection.PERSPECTIVE:
                 self.app_state.camera.distance -= 0.02
             else:
                 self.app_state.camera_ortho_half_height = max(0.01, self.app_state.camera_ortho_half_height - 0.02)
-                self.resizeGL(self.width(), self.height())
+                self.post_resize_event()
 
         if "w" in self._pressed_keys:
             self.app_state.camera.theta += 0.02
@@ -422,11 +422,11 @@ class GLWidget(QOpenGLWidget):
         if "[" in self._pressed_keys:
             self.app_state.camera_perspective_fov = max(10.0, self.app_state.camera_perspective_fov - 0.2)
             if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.resizeGL(self.width(), self.height())
+                self.post_resize_event()
         if "]" in self._pressed_keys:
             self.app_state.camera_perspective_fov = min(120.0, self.app_state.camera_perspective_fov + 0.2)
             if self.app_state.camera_projection == Projection.PERSPECTIVE:
-                self.resizeGL(self.width(), self.height())
+                self.post_resize_event()
 
         if "z" in self._pressed_keys:
             self.app_state.cube_distance += 0.02
@@ -434,3 +434,10 @@ class GLWidget(QOpenGLWidget):
             self.app_state.cube_distance -= 0.02
 
         self.update()
+
+    def post_resize_event(self) -> None:
+        app_instance = QtCore.QCoreApplication.instance()
+        if app_instance is None:
+            print("No QCoreApplication instance found")
+            return
+        app_instance.postEvent(self, QtGui.QResizeEvent(size := self.size(), size))
