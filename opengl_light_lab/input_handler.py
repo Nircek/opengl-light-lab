@@ -8,7 +8,17 @@ CUBE_DISTANCE_SPEED = 0.02
 
 
 class InputHandler:
+    """Handles keyboard input for the application.
+
+    Tracks pressed keys and updates the application state based on input.
+    """
+
     def __init__(self, app_state: AppState) -> None:
+        """Initialize the input handler.
+
+        Args:
+            app_state: The shared application state object.
+        """
         self.app_state = app_state
         self._pressed_keys: set[str] = set()
 

@@ -48,6 +48,7 @@ CUBE_TEX_COORDS = [
 
 
 def draw_cube() -> None:
+    """Draw a colored cube centered at the origin."""
     glBegin(GL_QUADS)
     for (normal, vertices), color in zip(CUBE_FACES, CUBE_FACE_COLORS, strict=True):
         glColor3f(*color)
@@ -58,6 +59,7 @@ def draw_cube() -> None:
 
 
 def draw_textured_cube() -> None:
+    """Draw a textured cube centered at the origin."""
     glColor3f(1.0, 1.0, 1.0)  # White to show texture colors properly
     glBegin(GL_QUADS)
     for (normal, vertices), tex_coords in zip(CUBE_FACES, CUBE_TEX_COORDS, strict=True):
@@ -69,6 +71,11 @@ def draw_textured_cube() -> None:
 
 
 def draw_cylinder(*, inside: bool = False) -> None:
+    """Draw a cylinder.
+
+    Args:
+        inside: If True, normals point inward.
+    """
     glColor3f(1.0, 1.0, 0.0)
     quad = gluNewQuadric()
     gluQuadricOrientation(quad, GLU_INSIDE if inside else GLU_OUTSIDE)
@@ -78,6 +85,11 @@ def draw_cylinder(*, inside: bool = False) -> None:
 
 
 def draw_quad(size: float) -> None:
+    """Draw a flat quad in the XY plane.
+
+    Args:
+        size: Half-width/height of the quad.
+    """
     glBegin(GL_QUADS)
     glVertex3f(-size, -size, 0.0)
     glVertex3f(+size, -size, 0.0)

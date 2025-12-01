@@ -12,7 +12,20 @@ if TYPE_CHECKING:
 
 
 class ControlPanel(QtWidgets.QDockWidget):
+    """Control panel widget for the OpenGL Light Lab application.
+
+    This widget provides a set of controls to manipulate the scene, camera,
+    light source, and objects. It updates the AppState object, which in turn
+    updates the GLWidget.
+    """
+
     def __init__(self, parent: QtWidgets.QWidget | None, app_state: AppState) -> None:  # noqa: PLR0914
+        """Initialize the control panel.
+
+        Args:
+            parent: The parent widget.
+            app_state: The shared application state object.
+        """
         super().__init__("Controls", parent)
         self.app_state = app_state
 
@@ -312,21 +325,27 @@ class ControlPanel(QtWidgets.QDockWidget):
         self._updating_from_state = False
 
     def _on_lighting_changed(self, state: int) -> None:
+        """Handle lighting enabled checkbox state change."""
         self.app_state.lighting_enabled = bool(state)
 
     def _on_depth_test_changed(self, state: int) -> None:
+        """Handle depth test enabled checkbox state change."""
         self.app_state.depth_test = bool(state)
 
     def _on_show_axis_changed(self, state: int) -> None:
+        """Handle show axis checkbox state change."""
         self.app_state.show_axis = bool(state)
 
     def _on_show_light_changed(self, state: int) -> None:
+        """Handle show light marker checkbox state change."""
         self.app_state.show_light_position = bool(state)
 
     def _on_auto_rotate_changed(self, state: int) -> None:
+        """Handle auto-rotate checkbox state change."""
         self.app_state.auto_rotate = bool(state)
 
     def _on_projection_changed(self, checked: bool) -> None:
+        """Handle projection type radio button toggle."""
         if checked:
             self.app_state.camera_projection = Projection.PERSPECTIVE
         else:
@@ -336,63 +355,81 @@ class ControlPanel(QtWidgets.QDockWidget):
             self.parent().on_projection_changed()  # type: ignore
 
     def _on_camera_distance_changed(self, value: float) -> None:
+        """Handle camera distance spinbox change."""
         self.app_state.camera.distance = value
 
     def _on_camera_theta_changed(self, value: float) -> None:
+        """Handle camera theta spinbox change."""
         self.app_state.camera.theta = value
 
     def _on_camera_phi_changed(self, value: float) -> None:
+        """Handle camera phi spinbox change."""
         self.app_state.camera.phi = value
 
     def _on_fov_changed(self, value: float) -> None:
+        """Handle perspective FOV spinbox change."""
         self.app_state.camera_perspective_fov = value
         if self.app_state.camera_projection == Projection.PERSPECTIVE and self.parent():
             cast("MainWindow", self.parent()).on_projection_changed()
 
     def _on_ortho_height_changed(self, value: float) -> None:
+        """Handle orthogonal half-height spinbox change."""
         self.app_state.camera_ortho_half_height = value
         if self.app_state.camera_projection == Projection.ORTHOGONAL and self.parent():
             cast("MainWindow", self.parent()).on_projection_changed()
 
     # Position handlers
+    # Position handlers
     def _on_pos_x_changed(self, value: float) -> None:
+        """Handle light position X spinbox change."""
         _x, y, z = self.app_state.light_position
         self.app_state.light_position = (value, y, z)
 
     def _on_pos_y_changed(self, value: float) -> None:
+        """Handle light position Y spinbox change."""
         x, _y, z = self.app_state.light_position
         self.app_state.light_position = (x, value, z)
 
     def _on_pos_z_changed(self, value: float) -> None:
+        """Handle light position Z spinbox change."""
         x, y, _z = self.app_state.light_position
         self.app_state.light_position = (x, y, value)
 
     # Direction handlers
+    # Direction handlers
     def _on_dir_x_changed(self, value: float) -> None:
+        """Handle light direction X spinbox change."""
         _dx, dy, dz = self.app_state.light_direction
         self.app_state.light_direction = (value, dy, dz)
 
     def _on_dir_y_changed(self, value: float) -> None:
+        """Handle light direction Y spinbox change."""
         dx, _dy, dz = self.app_state.light_direction
         self.app_state.light_direction = (dx, value, dz)
 
     def _on_dir_z_changed(self, value: float) -> None:
+        """Handle light direction Z spinbox change."""
         dx, dy, _dz = self.app_state.light_direction
         self.app_state.light_direction = (dx, dy, value)
 
     def _on_attenuation_mode_changed(self, index: int) -> None:
+        """Handle attenuation mode combo box change."""
         self.app_state.light_attenuation_mode = self.atten_mode_combo.itemData(index)
 
     def _on_attenuation_value_changed(self, value: float) -> None:
+        """Handle attenuation value spinbox change."""
         self.app_state.light_attenuation_value = value
 
     def _on_local_viewer_changed(self, state: int) -> None:
+        """Handle local viewer checkbox state change."""
         self.app_state.light_model_local_viewer = bool(state)
 
     def _on_two_side_changed(self, state: int) -> None:
+        """Handle two-side lighting checkbox state change."""
         self.app_state.light_model_two_side = bool(state)
 
     def _on_cube_distance_changed(self, value: float) -> None:
+        """Handle side objects distance spinbox change."""
         self.app_state.cube_distance = value
 
     def _populate_texture_combo(self) -> None:
@@ -436,6 +473,7 @@ class ControlPanel(QtWidgets.QDockWidget):
 
     # New light controls handlers
     def _on_light_type_changed(self, index: int) -> None:
+        """Handle light type combo box change."""
         self.app_state.light_type = self.light_type_combo.itemData(index)
         # Update visibility/enabled status immediately
         is_point = self.app_state.light_type == LightType.POINT
@@ -620,6 +658,14 @@ class ControlPanel(QtWidgets.QDockWidget):
 
     # Color pickers helpers
     def _pick_color(self, initial: tuple[float, float, float]) -> tuple[float, float, float] | None:
+        """Open a color picker dialog.
+
+        Args:
+            initial: Initial color as (r, g, b) floats in [0, 1].
+
+        Returns:
+            Selected color as (r, g, b) floats in [0, 1], or None if cancelled.
+        """
         r, g, b = [int(255 * max(0.0, min(1.0, c))) for c in initial]
         color = QtWidgets.QColorDialog.getColor(QtGui.QColor(r, g, b), self, "Select Color")
         if color.isValid():
@@ -627,22 +673,31 @@ class ControlPanel(QtWidgets.QDockWidget):
         return None
 
     def _update_color_button(self, btn: QtWidgets.QPushButton, rgb: tuple[float, float, float]) -> None:
+        """Update the background color of a button.
+
+        Args:
+            btn: The button to update.
+            rgb: Color as (r, g, b) floats in [0, 1].
+        """
         r, g, b = [int(255 * max(0.0, min(1.0, c))) for c in rgb]
         btn.setStyleSheet(f"background-color: rgb({r}, {g}, {b});")
 
     def _pick_diffuse(self) -> None:
+        """Open color picker for diffuse color."""
         res = self._pick_color(self.app_state.light_diffuse)
         if res is not None:
             self.app_state.light_diffuse = res
             self._update_color_button(self.diffuse_btn, res)
 
     def _pick_ambient(self) -> None:
+        """Open color picker for ambient color."""
         res = self._pick_color(self.app_state.light_ambient)
         if res is not None:
             self.app_state.light_ambient = res
             self._update_color_button(self.ambient_btn, res)
 
     def _pick_specular(self) -> None:
+        """Open color picker for specular color."""
         res = self._pick_color(self.app_state.light_specular)
         if res is not None:
             self.app_state.light_specular = res

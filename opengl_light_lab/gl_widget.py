@@ -82,7 +82,19 @@ FULL_REVOLUTION = 360.0
 
 
 class GLWidget(QOpenGLWidget):
+    """OpenGL widget for rendering the 3D scene.
+
+    Handles OpenGL initialization, resizing, and painting. Also manages
+    user input and scene updates.
+    """
+
     def __init__(self, parent: QtWidgets.QWidget | None, app_state: AppState) -> None:
+        """Initialize the GLWidget.
+
+        Args:
+            parent: The parent widget.
+            app_state: The shared application state object.
+        """
         super().__init__(parent)
         self.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.app_state = app_state
@@ -95,6 +107,7 @@ class GLWidget(QOpenGLWidget):
         self._texture_manager = TextureManager()
 
     def initializeGL(self) -> None:
+        """Initialize OpenGL state."""
         glClearColor(0.15, 0.15, 0.18, 1.0)
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
@@ -109,6 +122,12 @@ class GLWidget(QOpenGLWidget):
         self._texture_manager.load_if_changed(self.app_state.current_texture)
 
     def resizeGL(self, w: int, h: int) -> None:
+        """Handle widget resize events.
+
+        Args:
+            w: New width.
+            h: New height.
+        """
         if h == 0:
             h = 1
         aspect = w / h
@@ -124,6 +143,7 @@ class GLWidget(QOpenGLWidget):
         glLoadIdentity()
 
     def paintGL(self) -> None:
+        """Render the scene."""
         now = time.time()
         dt = now - self.last_time
         self.last_time = now
@@ -207,11 +227,17 @@ class GLWidget(QOpenGLWidget):
             painter.end()
 
     def rotation_update(self, dt_seconds: float) -> None:
+        """Update object rotation based on elapsed time.
+
+        Args:
+            dt_seconds: Time elapsed since last update in seconds.
+        """
         self.app_state.rotation_angle += 20.0 * dt_seconds
         if self.app_state.rotation_angle > FULL_REVOLUTION:
             self.app_state.rotation_angle -= FULL_REVOLUTION
 
     def draw_axis(self) -> None:
+        """Draw the coordinate axes."""
         glPushAttrib(GL_LIGHTING_BIT)
         glDisable(GL_LIGHTING)
         glLineWidth(2.0)
@@ -239,6 +265,7 @@ class GLWidget(QOpenGLWidget):
         glPopAttrib()
 
     def setup_light(self) -> None:
+        """Configure the OpenGL light source based on app state."""
         if self.app_state.light_type == LightType.POINT:
             light_pos = (GLfloat * 4)(*self.app_state.light_position, 1.0)
         else:
@@ -269,6 +296,7 @@ class GLWidget(QOpenGLWidget):
         glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1 if self.app_state.light_model_two_side else 0)
 
     def draw_light_marker(self) -> None:
+        """Draw a visual marker for the light source position/direction."""
         glPushAttrib(GL_LIGHTING_BIT)
         glDisable(GL_LIGHTING)
         if self.app_state.light_type == LightType.POINT:
@@ -284,6 +312,7 @@ class GLWidget(QOpenGLWidget):
         glPopAttrib()
 
     def _draw_directional_light_sun(self) -> None:
+        """Draw a 'sun' marker for directional light."""
         direction = self.app_state.light_direction
         length = math.sqrt(sum(d * d for d in direction))
         if length < 0.001:
@@ -308,6 +337,11 @@ class GLWidget(QOpenGLWidget):
         glPopMatrix()
 
     def keyPressEvent(self, ev: QtGui.QKeyEvent) -> None:
+        """Handle key press events.
+
+        Args:
+            ev: The key event.
+        """
         key = ev.key()
         txt = ev.text().lower()
 
@@ -322,18 +356,25 @@ class GLWidget(QOpenGLWidget):
             super().keyPressEvent(ev)
 
     def keyReleaseEvent(self, ev: QtGui.QKeyEvent) -> None:
+        """Handle key release events.
+
+        Args:
+            ev: The key event.
+        """
         txt = ev.text().lower()
         if txt:
             self._input_handler.key_released(txt)
         super().keyReleaseEvent(ev)
 
     def _tick(self) -> None:
+        """Timer tick handler for animation and updates."""
         needs_resize = self._input_handler.update()
         if needs_resize:
             self.post_resize_event()
         self.update()
 
     def post_resize_event(self) -> None:
+        """Post a resize event to self to force a layout update."""
         app_instance = QtCore.QCoreApplication.instance()
         if app_instance is None:
             print("No QCoreApplication instance found")

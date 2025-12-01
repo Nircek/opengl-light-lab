@@ -18,6 +18,15 @@ def setup_material(
     shininess: float,
     two_sided: bool = False,
 ) -> None:
+    """Configure OpenGL material properties.
+
+    Args:
+        ambient: Ambient color (r, g, b, a).
+        diffuse: Diffuse color (r, g, b, a).
+        specular: Specular color (r, g, b, a).
+        shininess: Shininess exponent.
+        two_sided: Whether to apply to both front and back faces.
+    """
     face = GL_FRONT_AND_BACK if two_sided else GL_FRONT
     glMaterialfv(face, GL_AMBIENT, (GLfloat * 4)(*ambient))
     glMaterialfv(face, GL_DIFFUSE, (GLfloat * 4)(*diffuse))
